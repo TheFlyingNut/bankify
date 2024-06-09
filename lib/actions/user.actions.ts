@@ -16,26 +16,40 @@ const {
   APPWRITE_BANK_COLLECTION_ID: BANK_COLLECTION_ID,
 } = process.env;
 
-export const getUserInfo = async ({ userId }: getUserInfoProps) => {
+export const getUserInfo = async ({ userId }: { userId: string }) => {
   try {
     const { database } = await createAdminClient();
 
-    const user = await database.listDocuments(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      [Query.equal('userId', [userId])]
-    )
+    if (!userId) {
+      console.error("No userId provided");
+      return null;
+    }
 
-    return parseStringify(user.documents[0]);
+    if (!DATABASE_ID || !USER_COLLECTION_ID) {
+      console.error("DATABASE_ID or USER_COLLECTION_ID environment variables are not set");
+      return null;
+    }
+
+    console.log(`Fetching user with ID: ${userId} from collection: ${USER_COLLECTION_ID} and database: ${DATABASE_ID}`);
+
+    const user = await database.getDocument(DATABASE_ID, USER_COLLECTION_ID, userId);
+    return user;
   } catch (error) {
-    console.log(error)
+    console.error("Error in getUserInfo:", error);
+    return null;
   }
-}
+};
 
 export const signIn = async ({ email, password }: signInProps) => {
   try {
+    console.log("Starting signIn process...");
+    console.log("Email:", email, "Password:", password);
+
     const { account } = await createAdminClient();
+    console.log("Admin Client Created. Creating Email Password Session...");
+
     const session = await account.createEmailPasswordSession(email, password);
+    console.log("Session Created:", session);
 
     cookies().set("appwrite-session", session.secret, {
       path: "/",
@@ -44,13 +58,14 @@ export const signIn = async ({ email, password }: signInProps) => {
       secure: true,
     });
 
-    const user = await getUserInfo({ userId: session.userId }) 
+    const user = await getUserInfo({ userId: session.userId });
+    console.log("User Info Retrieved:", user);
 
     return parseStringify(user);
   } catch (error) {
-    console.error('Error', error);
+    console.error("Error during signIn:", error);
   }
-}
+};
 
 export const signUp = async ({ password, ...userData }: SignUpParams) => {
   const { email, firstName, lastName } = userData;
@@ -67,16 +82,7 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
       `${firstName} ${lastName}`
     );
 
-    if(!newUserAccount) throw new Error('Error creating user')
-
-    const dwollaCustomerUrl = await createDwollaCustomer({
-      ...userData,
-      type: 'personal'
-    })
-
-    if(!dwollaCustomerUrl) throw new Error('Error creating Dwolla customer')
-
-    const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
+    if(!newUserAccount) throw new Error('Error creating user');
 
     const newUser = await database.createDocument(
       DATABASE_ID!,
@@ -85,10 +91,13 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
       {
         ...userData,
         userId: newUserAccount.$id,
-        dwollaCustomerId,
-        dwollaCustomerUrl
+        email,
+        firstName,
+        lastName
+        // dwollaCustomerId,
+        // dwollaCustomerUrl
       }
-    )
+    );
 
     const session = await account.createEmailPasswordSession(email, password);
 
@@ -101,9 +110,10 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     return parseStringify(newUser);
   } catch (error) {
-    console.error('Error', error);
+    console.error('Error during signUp:', error);
   }
-}
+};
+
 
 export async function getLoggedInUser() {
   try {

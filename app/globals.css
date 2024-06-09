@@ -156,7 +156,7 @@
   /* Right sidebar */
   /* In your CSS file */
   .right-sidebar {
-  @apply xl:flex hidden no-scrollbar h-screen max-h-screen flex-col border-l border-gray-200 w-[355px] xl:overflow-y-scroll !important;
+  @apply hidden sm:block xl:flex no-scrollbar h-screen max-h-screen flex-col border-l border-gray-200 w-[355px] xl:overflow-y-scroll !important;
   }
 
 
