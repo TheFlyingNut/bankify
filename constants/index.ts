@@ -1,3 +1,15 @@
+import { GetServerSideProps } from 'next';
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  return {
+    redirect: {
+      destination: '/auth/sign-in',
+      permanent: false,
+    },
+  };
+};
+
+
 export const sidebarLinks = [
   {
     imgURL: "/icons/home.svg",
