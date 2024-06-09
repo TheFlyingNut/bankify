@@ -158,14 +158,18 @@ export const createBankAccount = async ({
   accessToken,
   fundingSourceUrl,
   shareableId,
+  documentId
 }: createBankAccountProps) => {
   try {
     const { database } = await createAdminClient();
 
+    const docId = documentId || ID.unique();
+    console.log(`Creating bank account document with ID: ${docId}`);
+
     const bankAccount = await database.createDocument(
       DATABASE_ID!,
       BANK_COLLECTION_ID!,
-      ID.unique(),
+      docId,
       {
         userId,
         bankId,
@@ -173,8 +177,9 @@ export const createBankAccount = async ({
         accessToken,
         fundingSourceUrl,
         shareableId,
+        documentId: docId  // Ensure documentId is part of the document data
       }
-    )
+    );
 
     return parseStringify(bankAccount);
   } catch (error) {
@@ -212,8 +217,8 @@ export const exchangePublicToken = async ({
     const processorTokenResponse = await plaidClient.processorTokenCreate(request);
     const processorToken = processorTokenResponse.data.processor_token;
 
-     // Create a funding source URL for the account using the Dwolla customer ID, processor token, and bank name
-     const fundingSourceUrl = await addFundingSource({
+    // Create a funding source URL for the account using the Dwolla customer ID, processor token, and bank name
+    const fundingSourceUrl = await addFundingSource({
       dwollaCustomerId: user.dwollaCustomerId,
       processorToken,
       bankName: accountData.name,
@@ -230,6 +235,7 @@ export const exchangePublicToken = async ({
       accessToken,
       fundingSourceUrl,
       shareableId: encryptId(accountData.account_id),
+      documentId: ID.unique(), // Ensure a unique document ID is provided
     });
 
     // Revalidate the path to reflect the changes
@@ -240,7 +246,7 @@ export const exchangePublicToken = async ({
       publicTokenExchange: "complete",
     });
   } catch (error) {
-    console.error("An error occurred while creating exchanging token:", error);
+    console.error("An error occurred while exchanging token:", error);
   }
 }
 
@@ -264,11 +270,18 @@ export const getBank = async ({ documentId }: getBankProps) => {
   try {
     const { database } = await createAdminClient();
 
+    console.log(`Querying bank document with ID: ${documentId}`);
+
     const bank = await database.listDocuments(
       DATABASE_ID!,
       BANK_COLLECTION_ID!,
       [Query.equal('$id', [documentId])]
     )
+
+    if (bank.documents.length === 0) {
+      console.error(`No bank document found with ID: ${documentId}`);
+      return null;
+    }
 
     return parseStringify(bank.documents[0]);
   } catch (error) {
